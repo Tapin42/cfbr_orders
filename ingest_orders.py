@@ -1,14 +1,13 @@
 import argparse
 import os
 import re
-from dotenv import dotenv_values
 import sqlite3
 
-config = dotenv_values('.env')
+from constants import DB
 
 parser = argparse.ArgumentParser()
 parser.add_argument('file', help="Name of the orders file to ingest")
-parser.add_argument('--db', help="Path to the database [Default is from .env]", default=config['DB'])
+parser.add_argument('--db', help="Path to the database [Default is from .env]", default=DB)
 parser.add_argument('--season', help="The season to ingest into [Default is assumed from filename]")
 parser.add_argument('--day', help="The day to ingest into [Default is assumed from filename]")
 
