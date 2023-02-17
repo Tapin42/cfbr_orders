@@ -39,7 +39,6 @@ def homepage():
         else:
             # Let's get the basics
             username = get_username(access_token)
-            hoy = what_day_is_it()
 
             # Let's get this user's CFBR info
             response = requests.get(f"{CFBR_REST_API}/player?player={username}")
@@ -79,7 +78,7 @@ def homepage():
                                                          username=username,
                                                          current_stars=current_stars,
                                                          total_turns=total_turns,
-                                                         hoy=hoy,
+                                                         hoy=what_day_is_it(),
                                                          order=order,
                                                          confirm_url=CONFIRM_URL))
                 resp.set_cookie('a', access_token.encode())
@@ -219,7 +218,6 @@ def user_already_assigned(username, hoy_d, hoy_m):
     res = get_db().execute(query, (username, hoy_m, hoy_d))
     cmove = res.fetchone()
     res.close()
-
     return None if cmove is None else cmove[0]
 
 
