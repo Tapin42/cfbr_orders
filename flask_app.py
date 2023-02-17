@@ -55,12 +55,12 @@ def homepage():
             else:
                 order = get_next_order(CFBR_day(), CFBR_month())
                 existing_assignment = user_already_assigned(username, CFBR_day(), CFBR_month())
-                if existing_assignment is not None:  # Already got an assignment today.
+                if existing_assignment:  # Already got an assignment today.
                     order = existing_assignment
-                elif order is not None:  # Newly made assignment
+                elif order:  # Newly made assignment
                     write_new_order(username, order, current_stars)
 
-            if order is not None:
+            if order:
                 Logger.log(f"SUCCESS,{what_day_is_it()},{CFBR_day()}-{CFBR_month()},{username},Order: {order}")
             else:
                 Logger.log(f"NO ORDER,{what_day_is_it()},{CFBR_day()}-{CFBR_month()},{username}")
