@@ -16,7 +16,9 @@
     {% endif %}
 </div><br>
 <br>
-{% if order: %}
+{% if order and not order_confirmed: %}
 <button onclick="window.location.href='{{confirm_url}}';" id="accept_orders">Accept Orders</button>
+{% else: %}
+You have confirmed your order for today. Thank you for playing and Go Blue!
 {% endif %}
 {% endblock %}
