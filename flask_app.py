@@ -20,9 +20,9 @@ app = Flask(__name__)
 
 
 @app.route('/')
+@app.route(CONFIRM_ENDPOINT)
 def homepage():
     access_token = request.cookies.get('a')
-    confirmation = request.args.get('confirmed', default=0, type=int)
 
     if access_token is None:
         link = make_authorization_url()
@@ -64,15 +64,21 @@ def homepage():
             else:
                 Logger.log(f"NO ORDER,{what_day_is_it()},{CFBR_day()}-{CFBR_month()},{username}")
 
+            order_confirmed = get_order_confirmed(username)
             try:
-                if confirmation:
-                    # TODO: If a user sits on the order-confirmation page for a long enough time, they could
-                    # "confirm" yesterday's order but it'd be written as today's.  Fix this by updating the
-                    # query parameters to include the season/day
-                    Logger.log(f"SUCCESS,{what_day_is_it()},{CFBR_day()}-{CFBR_month()},{username},Order confirmed! Yay.")
-                    confirm_order(username)
-                    resp = make_response(render_template('confirmation.html',
-                                                         username=username))
+                # TODO: I dislike this if tree but I don't have time to refactor tonight. The stuff above should be its own function.
+                # For now: multiple routes.
+                if request.url_rule.rule == CONFIRM_ENDPOINT:
+                    if not order_confirmed:
+                        # TODO: If a user sits on the order-confirmation page for a long enough time, they could
+                        # "confirm" yesterday's order but it'd be written as today's.  Fix this by updating the
+                        # query parameters to include the season/day
+                        Logger.log(f"SUCCESS,{what_day_is_it()},{CFBR_day()}-{CFBR_month()},{username},Order confirmed! Yay.")
+                        confirm_order(username)
+                        resp = make_response(render_template('confirmation.html',
+                                                             username=username))
+                    else:
+                        return redirect(BASE_URL)
                 else:
                     resp = make_response(render_template('order.html',
                                                          username=username,
@@ -80,6 +86,7 @@ def homepage():
                                                          total_turns=total_turns,
                                                          hoy=what_day_is_it(),
                                                          order=order,
+                                                         order_confirmed=order_confirmed,
                                                          confirm_url=CONFIRM_URL))
                 resp.set_cookie('a', access_token.encode())
             except Exception as e:
@@ -267,6 +274,21 @@ def confirm_order(username):
     db = get_db()
     db.execute(query, (username, CFBR_month(), CFBR_day()))
     db.commit()
+
+
+def get_order_confirmed(username):
+    query = '''
+        SELECT accepted
+        FROM orders
+        WHERE
+            user=?
+            AND season=?
+            AND day=?
+    '''
+    res = get_db().execute(query, (username, CFBR_month(), CFBR_day()))
+    accepted = res.fetchone()
+    res.close()
+    return False if accepted is None or accepted[0] == 0 else True
 
 ###############################################################
 #
