@@ -29,6 +29,13 @@ ERROR_PAGE = "error.html"
 
 @app.route('/')
 def homepage():
+
+    if POSTGAME:
+        if POSTGAME == "Yay!":
+            return make_response(render_template('postgame-yay.html'))
+        elif POSTGAME == "Boo!":
+            return make_response(render_template('postgame-boo.html'))
+
     cookie = request.cookies.get('a')
     auth_resp_if_necessary, username = check_identity_or_auth(request)
 
@@ -160,6 +167,17 @@ def admin_page():
         return auth_resp_if_necessary
 
     return Admin.build_page(request, username, CFBR_day(), CFBR_month())
+
+@app.route('/admin/territories')
+def admin_territory_page():
+    auth_resp_if_necessary, username = check_identity_or_auth(request)
+
+    # The user needs to authenticate, short-circuit here.
+    if auth_resp_if_necessary:
+        return auth_resp_if_necessary
+
+    return Admin.build_territory_page(request, username, CFBR_day(), CFBR_month())
+
 
 @app.teardown_appcontext
 def close_connection(exception):

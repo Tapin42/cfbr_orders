@@ -2,6 +2,9 @@ from flask import make_response, redirect, render_template
 from cfbr_db import Db
 from logger import Logger
 from orders import Orders
+from cfbr_api import CfbrApi
+from constants import THE_GOOD_GUYS
+
 
 
 log = Logger.getLogger(__name__)
@@ -18,9 +21,13 @@ class Admin:
 
         composite_orders = []
         overall_totals = {
+            "nplayers": 0,
             "quota": 0,
             "assigned": 0,
-            "display_pct": "0%"
+            "display_pct": "0%",
+            "nterritories": 0,
+            "ncompleted": 0,
+            "completed_pct": "0%"
         }
 
         # What day did you request?
@@ -56,11 +63,9 @@ class Admin:
             # Now that we're done, we have to put out the final tier total and the overall total
             composite_orders.append(display_sum_row(elegido_d, elegido_m, cur_tier))
 
-            total_quota, total_assigned = Orders.get_day_totals(elegido_d, elegido_m)
-            if total_quota > 0:
-                overall_totals['quota'] = total_quota
-                overall_totals['assigned'] = total_assigned
-                overall_totals['display_pct'] = '{:.1%}'.format(total_assigned / total_quota)
+            overall_totals = Orders.get_day_totals(elegido_d, elegido_m)
+            overall_totals['display_pct'] = '{:.1%}'.format(overall_totals['assigned'] / overall_totals['quota'])
+            overall_totals['completed_pct'] = '{:.1%}'.format(overall_totals['ncompleted'] / overall_totals['nterritories'])
 
         dropdown_dates = populate_date_dropdown()
         pagedate = f"{elegido_m}/{elegido_d}"
@@ -72,7 +77,51 @@ class Admin:
                                              orders=composite_orders,
                                              totals=overall_totals,
                                              dates=dropdown_dates,
-                                             pagedate=pagedate))
+                                             pagedate=pagedate,
+                                             is_admin=Admin.is_admin(username)))
+
+    @staticmethod
+    def build_territory_page(request, username, hoy_d, hoy_m):
+        log.info(f"{username}: Admin territory page request")
+        # First things first: are you allowed to be here?
+        if not Admin.is_admin(username):
+            log.warn(f"{username}: They don't belong here!  Sending 'em to the root.")
+            return make_response(redirect('/'))
+
+        # We really ought to cache this.  Shame Tapin for not doing so yet because Krrrrsten hurt her wrist.
+        cur_turn = CfbrApi.get_cur_turn()
+        # One of these days we should reconcile our (day, season) ordering
+        cur_territories = CfbrApi.get_territories(cur_turn[1], cur_turn[0])
+
+        good_guy_territories = list(filter(lambda x: x['owner'] == THE_GOOD_GUYS, cur_territories))
+        good_guy_territories.sort(key=lambda x: x['name'])
+
+        protected_territories = []
+        enemy_targets = []
+        enemy_targets_with_owners = []
+
+        for us in good_guy_territories:
+            protected = True
+            for them in us['neighbors']:
+                if them['owner'] != us['owner']:
+                    protected = False
+                    if them['name'] not in enemy_targets:
+                        enemy_targets.append(them['name'])
+                        enemy_targets_with_owners.append({
+                            "name": them['name'],
+                            "owner": them['owner']
+                        })
+            if protected:
+                protected_territories.append(us['name'])
+
+        enemy_targets_with_owners.sort(key=lambda x: (x['owner'], x['name']))
+        good_guy_territories = list(filter(lambda x: x['name'] not in protected_territories, good_guy_territories))
+
+        return make_response(render_template('territories.html',
+                                             defend=good_guy_territories,
+                                             attack=enemy_targets_with_owners,
+                                             is_admin=Admin.is_admin(username)))
+
 
     @staticmethod
     def is_admin(user):
@@ -95,17 +144,15 @@ class Admin:
 
 def display_sum_row(hoy_d, hoy_m, tier):
     quota, assigned = Orders.get_day_and_tier_totals(hoy_d, hoy_m, tier)
-    nterritories, ncompleted = Orders.get_tier_territory_summary(hoy_d, hoy_m, tier)
+    sumrow = Orders.get_tier_territory_summary(hoy_d, hoy_m, tier)
     if quota > 0:
-        return {
+        return sumrow | {
             "sumrow": True,
             "tier": tier,
             "quota": quota,
             "assigned": assigned,
             "display_pct": '{:.1%}'.format(assigned / quota),
-            "nterritories": nterritories,
-            "ncompleted": ncompleted,
-            "completed_pct": '{:.1%}'.format(ncompleted / nterritories)
+            "completed_pct": '{:.1%}'.format(sumrow['ncompleted'] / sumrow['nterritories'])
         }
 
 def populate_date_dropdown():
