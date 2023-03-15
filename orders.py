@@ -37,6 +37,10 @@ class Orders:
 
     @staticmethod
     def get_orders(hoy_d, hoy_m):
+        """
+        :returns: array of orders {territory, tier, quota, assigned, pct_complete}
+        """
+
         query = '''
             SELECT
                 name,
@@ -299,6 +303,10 @@ class Orders:
 
     @staticmethod
     def get_day_totals(hoy_d, hoy_m):
+        """
+
+        :returns: tuple (quota, assigned)
+        """
         # See the note on get_day_and_tier_totals for the reason why this is done as two separate
         # queries.
 
